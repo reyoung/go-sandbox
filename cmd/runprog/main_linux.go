@@ -48,8 +48,8 @@ func init() {
 
 func main() {
 	flag.Usage = printUsage
-	flag.DurationVar(&timeLimit, "tl", time.Second, "Set time limit (in second)")
-	flag.DurationVar(&realTimeLimit, "rtl", 0, "Set real time limit (in second)")
+	flag.DurationVar(&timeLimit, "tl", time.Second, "Set time limit")
+	flag.DurationVar(&realTimeLimit, "rtl", 0, "Set real time limit")
 	flag.Uint64Var(&memoryLimit, "ml", 256, "Set memory limit (in mb)")
 	flag.Uint64Var(&outputLimit, "ol", 64, "Set output limit (in mb)")
 	flag.Uint64Var(&stackLimit, "sl", 1024, "Set stack limit (in mb)")
