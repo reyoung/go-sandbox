@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -32,12 +33,12 @@ import (
 var (
 	addReadable, addWritable, addRawReadable, addRawWritable       arrayFlags
 	allowProc, unsafe, showDetails, useCGroup, memfile, cred, nucg bool
-	timeLimit, realTimeLimit, memoryLimit, outputLimit, stackLimit uint64
+	memoryLimit, outputLimit, stackLimit                           uint64
 	inputFileName, outputFileName, errorFileName, workPath, runt   string
-
-	useCGroupFd   bool
-	pType, result string
-	args          []string
+	timeLimit, realTimeLimit                                       time.Duration
+	useCGroupFd                                                    bool
+	pType, result                                                  string
+	args                                                           []string
 )
 
 // container init
@@ -47,8 +48,8 @@ func init() {
 
 func main() {
 	flag.Usage = printUsage
-	flag.Uint64Var(&timeLimit, "tl", 1, "Set time limit (in second)")
-	flag.Uint64Var(&realTimeLimit, "rtl", 0, "Set real time limit (in second)")
+	flag.DurationVar(&timeLimit, "tl", time.Second, "Set time limit (in second)")
+	flag.DurationVar(&realTimeLimit, "rtl", 0, "Set real time limit (in second)")
 	flag.Uint64Var(&memoryLimit, "ml", 256, "Set memory limit (in mb)")
 	flag.Uint64Var(&outputLimit, "ol", 64, "Set output limit (in mb)")
 	flag.Uint64Var(&stackLimit, "sl", 1024, "Set stack limit (in mb)")
@@ -79,7 +80,7 @@ func main() {
 	}
 
 	if realTimeLimit < timeLimit {
-		realTimeLimit = timeLimit + 2
+		realTimeLimit = timeLimit + 2*time.Second
 	}
 	if stackLimit > memoryLimit {
 		stackLimit = memoryLimit
@@ -267,8 +268,8 @@ func start() (*runner.Result, error) {
 	}
 
 	rlims := rlimit.RLimits{
-		CPU:         timeLimit,
-		CPUHard:     realTimeLimit,
+		CPU:         uint64(math.Ceil(timeLimit.Seconds())),
+		CPUHard:     uint64(math.Ceil(realTimeLimit.Seconds())),
 		FileSize:    outputLimit << 20,
 		Stack:       stackLimit << 20,
 		Data:        memoryLimit << 20,
@@ -300,7 +301,7 @@ func start() (*runner.Result, error) {
 	}
 
 	limit := runner.Limit{
-		TimeLimit:   time.Duration(timeLimit) * time.Second,
+		TimeLimit:   timeLimit,
 		MemoryLimit: runner.Size(memoryLimit << 20),
 	}
 
@@ -400,7 +401,7 @@ func start() (*runner.Result, error) {
 
 	// Run tracer
 	sTime := time.Now()
-	c, cancel := context.WithTimeout(context.Background(), time.Duration(int64(realTimeLimit)*int64(time.Second)))
+	c, cancel := context.WithTimeout(context.Background(), realTimeLimit)
 	defer cancel()
 
 	s := make(chan runner.Result, 1)

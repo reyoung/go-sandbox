@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"syscall"
 	"time"
@@ -15,19 +16,19 @@ import (
 )
 
 var (
-	timeLimit, realTimeLimit, memoryLimit, outputLimit, stackLimit uint64
-	inputFileName, outputFileName, errorFileName, workPath         string
-
-	profilePath, result string
-	showDetails         bool
+	memoryLimit, outputLimit, stackLimit                   uint64
+	inputFileName, outputFileName, errorFileName, workPath string
+	timeLimit, realTimeLimit                               time.Duration
+	profilePath, result                                    string
+	showDetails                                            bool
 
 	args []string
 )
 
 func main() {
 	flag.Usage = printUsage
-	flag.Uint64Var(&timeLimit, "tl", 1, "Set time limit (in second)")
-	flag.Uint64Var(&realTimeLimit, "rtl", 0, "Set real time limit (in second)")
+	flag.DurationVar(&timeLimit, "tl", time.Second, "Set time limit (in second)")
+	flag.DurationVar(&realTimeLimit, "rtl", 0, "Set real time limit (in second)")
 	flag.Uint64Var(&memoryLimit, "ml", 256, "Set memory limit (in mb)")
 	flag.Uint64Var(&outputLimit, "ol", 64, "Set output limit (in mb)")
 	flag.Uint64Var(&stackLimit, "sl", 32, "Set stack limit (in mb)")
@@ -46,7 +47,7 @@ func main() {
 	}
 
 	if realTimeLimit < timeLimit {
-		realTimeLimit = timeLimit + 2
+		realTimeLimit = timeLimit + 2*time.Second
 	}
 	if stackLimit > memoryLimit {
 		stackLimit = memoryLimit
@@ -133,8 +134,8 @@ func start() (*runner.Result, error) {
 	}
 
 	rlims := rlimit.RLimits{
-		CPU:          timeLimit,
-		CPUHard:      realTimeLimit,
+		CPU:          uint64(math.Ceil(timeLimit.Seconds())),
+		CPUHard:      uint64(math.Ceil(realTimeLimit.Seconds())),
 		FileSize:     outputLimit << 20,
 		Data:         memoryLimit << 20,
 		AddressSpace: memoryLimit << 20,
@@ -186,7 +187,7 @@ func start() (*runner.Result, error) {
 			SetUpTime:   mTime.Sub(sTime),
 			RunningTime: fTime.Sub(mTime),
 		}
-		if uint64(result.Time) > timeLimit*1e9 {
+		if uint64(result.Time) > uint64(timeLimit) {
 			result.Status = runner.StatusTimeLimitExceeded
 		}
 		if uint64(result.Memory) > memoryLimit<<20 {
