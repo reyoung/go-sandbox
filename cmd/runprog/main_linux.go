@@ -36,7 +36,7 @@ var (
 	memoryLimit, outputLimit, stackLimit                           uint64
 	inputFileName, outputFileName, errorFileName, workPath, runt   string
 	timeLimit, realTimeLimit                                       time.Duration
-	useCGroupFd                                                    bool
+	useCGroupFd, bindPWD                                           bool
 	pType, result                                                  string
 	args                                                           []string
 )
@@ -72,6 +72,7 @@ func main() {
 	flag.StringVar(&runt, "runner", "ptrace", "Runner for the program (ptrace, ns, container)")
 	flag.BoolVar(&cred, "cred", false, "Generate credential for containers (uid=10000)")
 	flag.BoolVar(&nucg, "nucg", false, "don't unshare cgroup")
+	flag.BoolVar(&bindPWD, "bind-pwd", false, "Bind current working directory into container")
 	flag.Parse()
 
 	args = flag.Args()
@@ -181,8 +182,15 @@ func start() (*runner.Result, error) {
 		// work dir
 		WithTmpfs("w", "size=8m,nr_inodes=4k").
 		// tmp dir
-		WithTmpfs("tmp", "size=8m,nr_inodes=4k").
-		FilterNotExist()
+		WithTmpfs("tmp", "size=8m,nr_inodes=4k")
+
+	if bindPWD {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("get cwd: %w", err)
+		}
+		mb = mb.WithBind(cwd, cwd[1:], true)
+	}
 
 	mt, err := mb.FilterNotExist().Build()
 	if err != nil {
