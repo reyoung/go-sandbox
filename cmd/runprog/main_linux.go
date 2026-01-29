@@ -189,7 +189,7 @@ func start() (*runner.Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get cwd: %w", err)
 		}
-		mb = mb.WithBind(cwd, cwd[1:], true)
+		mb = mb.WithBind(cwd, cwd[1:], false)
 	}
 
 	mt, err := mb.FilterNotExist().Build()
